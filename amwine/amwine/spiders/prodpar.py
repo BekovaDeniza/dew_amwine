@@ -9,7 +9,9 @@ class ProdparSpider(scrapy.Spider):
     allowed_domains = ['amwine.ru']
     start_urls = ['https://amwine.ru/catalog/krepkie_napitki/']
 
-    headers = {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'}
+    headers = {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/103.0.0.0 Safari/537.36'}
 
     section_ids = ['29', '38']  # vino-16, viski-28, konyak-18, vodka-29, krepkie_napitki-185, pivo-38
     api = 'https://amwine.ru/local/components/adinadin/catalog.section.json/ajax_call.php'
@@ -20,15 +22,14 @@ class ProdparSpider(scrapy.Spider):
                                  body=f'json=y&params%5BIBLOCK_TYPE%5D=catalog&params%5BIBLOCK_ID%5D=2&params%5B'
                                       f'SECTION_ID%5D={i}&params%5BPRICE_CODE%5D=CFO&params%5BFILTER_NAME%5D=arrF'
                                       f'ilterCatalog&params%5BSORT_ORDER%5D=ASC&params%5BSORT_FIELD%5D=SORT',
-                                 callback=self.parse_page, meta={'section_id': i})
+                                 callback=self.parse_page, method='POST', meta={'section_id': i})
 
     def parse_page(self, response):
         """
         Делаем повторный запрос, с количеством всех товаров.
         """
-        # data = json.loads(response.body)
-        # page_element_count = data["productsTotalCount"] # секунду назад работало, а сейчас нет
-        page_element_count = '25'  # задаем в ручную количество элементов
+        data = json.loads(response.body)
+        page_element_count = data["productsTotalCount"]
         section_id = response.meta['section_id']
         yield scrapy.Request(self.api,
                              headers=self.headers,
@@ -46,6 +47,7 @@ class ProdparSpider(scrapy.Spider):
         """
         result = json.loads(response.body)
         for product in result['products']:
+            print(product['name'])
             temp_data = {'available': product['available'], 'id': product['id'], 'name': product['name'],
                          'article': product['props']['article'], 'image': product['preview_picture'],
                          'price': {
@@ -94,7 +96,7 @@ class ProdparSpider(scrapy.Spider):
             'Производитель': '',
             'Крепость': '',
             'Выдержка': '',
-            'Артикул': response.meta['temp_data']['article']
+            'Артикул': str(response.meta['temp_data']['article'])
         }
         wine_params = [x.replace('\n', '').replace(' ', '') for x in
                        response.css('div.about-wine__param *::text').getall()]
@@ -106,5 +108,7 @@ class ProdparSpider(scrapy.Spider):
                 item['brand'] = wine_params[i + 1]
         description = [x.replace('\n', '') for x in response.css('div.about-wine__block.col-md-4 *::text').getall()]
         description = [x for x in description if x.replace(' ', '')]
-        item['metadata']['__description'] = ': '.join(description)
+        for i in range(0, len(description), 2):
+            if description[i] == 'Описание':
+                item['metadata']['__description'] = description[i+1]
         yield item
