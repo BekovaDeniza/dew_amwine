@@ -1,6 +1,6 @@
 import scrapy
 import json
-from time import time
+from datetime import datetime
 from amwine.items import Product
 
 
@@ -70,7 +70,7 @@ class ProdparSpider(scrapy.Spider):
         Парсим страницу товара.
         """
         item = Product()
-        item['timestamp'] = time()
+        item['timestamp'] = datetime.now.time()
         item['RPC'] = response.meta['temp_data']['id']
         item['url'] = response.url
         item['title'] = response.meta['temp_data']['name']
