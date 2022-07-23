@@ -47,15 +47,21 @@ class ProdparSpider(scrapy.Spider):
         """
         result = json.loads(response.body)
         for product in result['products']:
-            print(product['name'])
             temp_data = {'available': product['available'], 'id': product['id'], 'name': product['name'],
-                         'article': product['props']['article'], 'image': product['preview_picture'],
+                         'article': '', 'image': product['preview_picture'],
                          'price': {
-                             'current': product['props']['middle_price_77'],
-                             'original': product['props']['old_price_77'],
+                             'current': 0.0,
+                             'original': 0.0,
                              'sale': product['sale']
                          }
                          }
+            try:
+                temp_data['article'] = str(product['props']['article'])
+            except: pass
+            try:
+                temp_data['price']['current'] = product['props']['middle_price_77']
+                temp_data['price']['current'] = product['props']['old_price_77']
+            except: pass
             url = response.urljoin(product['link'])
             yield scrapy.Request(url, callback=self.parse_product, meta={'temp_data': temp_data})
 
@@ -96,7 +102,7 @@ class ProdparSpider(scrapy.Spider):
             'Производитель': '',
             'Крепость': '',
             'Выдержка': '',
-            'Артикул': str(response.meta['temp_data']['article'])
+            'Артикул': response.meta['temp_data']['article']
         }
         wine_params = [x.replace('\n', '').replace(' ', '') for x in
                        response.css('div.about-wine__param *::text').getall()]
